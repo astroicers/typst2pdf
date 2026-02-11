@@ -1,0 +1,10 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "command": "pip install -r requirements.txt -q 2>/dev/null && echo '✓ Dependencies installed' && pytest tests/ -v --tb=short 2>&1 | tail -20 && echo '✓ Tests completed'",
+        "timeout": 120
+      }
+    ]
+  }
+}
