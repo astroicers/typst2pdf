@@ -1,2 +1,12 @@
 report.pdf
 example.zip
+output.pdf
+*.pdf
+*.zip
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+.env
