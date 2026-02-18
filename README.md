@@ -32,6 +32,16 @@ pytest tests/ -v
 
 ---
 
+## API Documentation
+
+Full API documentation is available in OpenAPI 3.0 format: [`openapi.yaml`](openapi.yaml)
+
+You can view it interactively using:
+- [Swagger Editor](https://editor.swagger.io/) — paste the YAML content
+- [Redoc](https://redocly.github.io/redoc/) — point to the raw file URL
+
+---
+
 ## API Reference
 
 ### `GET /` — Service Status

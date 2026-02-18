@@ -1,0 +1,476 @@
+openapi: 3.0.3
+info:
+  title: typst-api
+  description: |
+    REST API for converting Typst documents to PDF, PNG, and SVG.
+
+    Powered by [typst-py](https://github.com/messense/typst-py) — a native Python binding to the Typst compiler.
+
+    ## Features
+
+    - **Multi-format output**: PDF, PNG, SVG
+    - **ZIP project support**: Upload multi-file Typst projects
+    - **Raw source compilation**: Compile Typst code directly without packaging
+    - **Dynamic templates**: Pass data via `sys_inputs` at compile time
+    - **In-memory compilation**: `/render/raw` compiles entirely in memory
+  version: 2.0.0
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  contact:
+    name: GitHub Repository
+    url: https://github.com/astroicers/typst-api
+
+servers:
+  - url: http://localhost:8000
+    description: Local development server
+  - url: http://localhost:38000
+    description: Docker container (mapped port)
+
+tags:
+  - name: Health
+    description: Service health and status endpoints
+  - name: Render
+    description: Typst document rendering endpoints
+
+paths:
+  /:
+    get:
+      tags:
+        - Health
+      summary: Service Status
+      description: Returns service metadata including version and compiler information.
+      operationId: getStatus
+      responses:
+        '200':
+          description: Service is running
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceStatus'
+              example:
+                service: typst-api
+                status: running
+                version: 2.0.0
+                compiler: typst-py
+
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health Check
+      description: |
+        Verifies the typst-py compiler can compile a simple document.
+        Use this endpoint for container health checks and monitoring.
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Compiler is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                status: healthy
+                compiler: typst-py
+        '503':
+          description: Compiler unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                status: unhealthy
+                compiler: typst-py
+                error: Compilation test failed
+
+  /fonts:
+    get:
+      tags:
+        - Health
+      summary: List Available Fonts
+      description: |
+        Returns all fonts available in the runtime environment.
+
+        **Note**: This endpoint requires the Typst CLI binary, which is included in the Docker image.
+      operationId: listFonts
+      responses:
+        '200':
+          description: Font list retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FontList'
+              example:
+                fonts:
+                  - Noto Sans
+                  - Noto Sans CJK TC
+                  - Linux Libertine
+                count: 3
+        '503':
+          description: Typst CLI not available
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Typst CLI not available
+
+  /render:
+    post:
+      tags:
+        - Render
+      summary: Render ZIP Project
+      description: |
+        Upload a ZIP archive containing Typst source files and receive the compiled output.
+
+        ## ZIP Structure
+
+        The ZIP should contain your `.typ` files and any assets (images, data files).
+        The `entrypoint` parameter specifies which `.typ` file to compile.
+
+        ## Example ZIP structure
+
+        ```
+        project.zip
+        ├── main.typ        # entrypoint
+        ├── chapters/
+        │   └── intro.typ
+        └── images/
+            └── logo.png
+        ```
+      operationId: renderZip
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RenderZipRequest'
+      responses:
+        '200':
+          description: Compilation successful
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/svg+xml:
+              schema:
+                type: string
+                format: binary
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                noFile:
+                  summary: No file uploaded
+                  value:
+                    error: No file uploaded
+                    field: file
+                emptyFilename:
+                  summary: Empty filename
+                  value:
+                    error: Empty filename
+                invalidEntrypoint:
+                  summary: Invalid entrypoint path
+                  value:
+                    error: Invalid entrypoint path
+                invalidZip:
+                  summary: Invalid ZIP file
+                  value:
+                    error: Invalid zip file
+                entrypointNotFound:
+                  summary: Entrypoint not found
+                  value:
+                    error: "Entrypoint not found: main.typ"
+                unsupportedFormat:
+                  summary: Unsupported format
+                  value:
+                    error: "Unsupported format: docx"
+                    supported:
+                      - pdf
+                      - png
+                      - svg
+                invalidPpi:
+                  summary: Invalid PPI value
+                  value:
+                    error: "Invalid ppi value: abc"
+                invalidSysInputs:
+                  summary: Invalid sys_inputs JSON
+                  value:
+                    error: "sys_inputs must be valid JSON: Expecting value"
+        '500':
+          description: Compilation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Compilation failed: undefined variable: foo"
+
+  /render/raw:
+    post:
+      tags:
+        - Render
+      summary: Render Raw Typst Source
+      description: |
+        Compile Typst source code directly without ZIP packaging.
+
+        Ideal for:
+        - Single-file documents
+        - Live previews
+        - Programmatic document generation
+
+        Accepts both JSON and form data.
+      operationId: renderRaw
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RenderRawJsonRequest'
+            examples:
+              simple:
+                summary: Simple document
+                value:
+                  source: "= Hello World\nThis is a *test*."
+              withFormat:
+                summary: PNG output
+                value:
+                  source: "= Preview"
+                  format: png
+                  ppi: 300
+              withSysInputs:
+                summary: With dynamic data
+                value:
+                  source: |
+                    #let name = sys.inputs.at("name")
+                    Hello, #name!
+                  sys_inputs:
+                    name: Alice
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RenderRawFormRequest'
+      responses:
+        '200':
+          description: Compilation successful
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/svg+xml:
+              schema:
+                type: string
+                format: binary
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                noSource:
+                  summary: No source provided
+                  value:
+                    error: No source provided
+                    field: source
+                unsupportedFormat:
+                  summary: Unsupported format
+                  value:
+                    error: "Unsupported format: docx"
+                    supported:
+                      - pdf
+                      - png
+                      - svg
+                invalidSysInputs:
+                  summary: Invalid sys_inputs
+                  value:
+                    error: sys_inputs must be a JSON object
+        '500':
+          description: Compilation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Compilation failed: expected semicolon"
+
+components:
+  schemas:
+    ServiceStatus:
+      type: object
+      properties:
+        service:
+          type: string
+          description: Service name
+          example: typst-api
+        status:
+          type: string
+          description: Current status
+          example: running
+        version:
+          type: string
+          description: API version
+          example: 2.0.0
+        compiler:
+          type: string
+          description: Compiler backend
+          example: typst-py
+      required:
+        - service
+        - status
+        - version
+        - compiler
+
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+            - healthy
+            - unhealthy
+          description: Health status
+        compiler:
+          type: string
+          description: Compiler backend
+          example: typst-py
+        error:
+          type: string
+          description: Error message if unhealthy
+      required:
+        - status
+        - compiler
+
+    FontList:
+      type: object
+      properties:
+        fonts:
+          type: array
+          items:
+            type: string
+          description: List of available font names
+        count:
+          type: integer
+          description: Total number of fonts
+      required:
+        - fonts
+        - count
+
+    RenderZipRequest:
+      type: object
+      properties:
+        file:
+          type: string
+          format: binary
+          description: ZIP archive containing Typst source files
+        entrypoint:
+          type: string
+          default: main.typ
+          description: Path to the main .typ file in the ZIP
+          example: main.typ
+        format:
+          type: string
+          enum:
+            - pdf
+            - png
+            - svg
+          default: pdf
+          description: Output format
+        ppi:
+          type: number
+          format: float
+          default: 144.0
+          description: Pixels per inch (PNG only)
+          example: 300
+        sys_inputs:
+          type: string
+          description: JSON object of key-value strings passed into Typst
+          example: '{"company": "ACME", "date": "2025-01-01"}'
+      required:
+        - file
+
+    RenderRawJsonRequest:
+      type: object
+      properties:
+        source:
+          type: string
+          description: Typst source code
+          example: "= Hello World"
+        format:
+          type: string
+          enum:
+            - pdf
+            - png
+            - svg
+          default: pdf
+          description: Output format
+        ppi:
+          type: number
+          format: float
+          default: 144.0
+          description: Pixels per inch (PNG only)
+        sys_inputs:
+          type: object
+          additionalProperties:
+            type: string
+          description: Key-value strings passed into Typst
+          example:
+            name: Alice
+            date: "2025-01-01"
+      required:
+        - source
+
+    RenderRawFormRequest:
+      type: object
+      properties:
+        source:
+          type: string
+          description: Typst source code
+        format:
+          type: string
+          enum:
+            - pdf
+            - png
+            - svg
+          default: pdf
+          description: Output format
+        ppi:
+          type: string
+          default: "144.0"
+          description: Pixels per inch (PNG only)
+        sys_inputs:
+          type: string
+          description: JSON string of key-value pairs
+          example: '{"name": "Alice"}'
+      required:
+        - source
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+        field:
+          type: string
+          description: Field that caused the error (if applicable)
+        supported:
+          type: array
+          items:
+            type: string
+          description: List of supported values (for format errors)
+      required:
+        - error
