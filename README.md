@@ -315,15 +315,15 @@ Use `GET /fonts` to see the full list at runtime.
 
 ## Example Template
 
-The `example_zip/` directory contains a sample Typst document:
+The `examples/` directory contains a sample Typst document:
 
 ```bash
-cd example_zip
+cd examples
 zip -r ../example.zip ./*
 curl -X POST http://localhost:38000/render \
   -F "file=@../example.zip" \
-  -F "entrypoint=main.typ" \
-  --output report.pdf
+  -F "entrypoint=hello.typ" \
+  --output output.pdf
 ```
 
 ## Project Structure
@@ -340,8 +340,8 @@ typst-api/
 │       └── services/       # Typst compiler service
 ├── tests/
 │   └── test_api.py         # 28 tests
-├── example_zip/
-│   └── main.typ            # Example Typst template
+├── examples/
+│   └── hello.typ           # Example Typst template
 ├── CLAUDE.md               # Claude Code project guide
 └── README.md               # This file
 ```

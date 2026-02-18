@@ -39,8 +39,8 @@ typst-api/
 │   ├── __init__.py
 │   ├── conftest.py             # pytest fixtures
 │   └── test_api.py             # API test suite (28 tests)
-├── example_zip/
-│   └── main.typ                # Example Typst document template
+├── examples/
+│   └── hello.typ               # Example Typst document
 └── .claude/
     └── settings.json           # SessionStart hook
 ```
@@ -85,11 +85,11 @@ docker run -p 38000:8000 typst-api
 ### Test the API (ZIP upload)
 
 ```bash
-cd example_zip && zip -r ../example.zip ./* && cd ..
+cd examples && zip -r ../example.zip ./* && cd ..
 curl -X POST http://localhost:38000/render \
   -F "file=@example.zip" \
-  -F "entrypoint=main.typ" \
-  --output report.pdf
+  -F "entrypoint=hello.typ" \
+  --output output.pdf
 ```
 
 ### Test the API (raw source)
