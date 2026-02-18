@@ -1,4 +1,4 @@
-# typst2pdf
+# typst-api
 
 Dockerized REST API service for converting [Typst](https://typst.app/) documents to PDF, PNG, and SVG.
 
@@ -18,15 +18,15 @@ The service is now available at `http://localhost:38000`.
 ### Local Development
 
 ```bash
-pip install -r requirements.txt
-python3 app.py
+pip install -e .
+typst-api
 # Server starts on http://localhost:8000
 ```
 
 ### Run Tests
 
 ```bash
-pip install -r requirements.txt
+pip install -e ".[dev]"
 pytest tests/ -v
 ```
 
@@ -42,7 +42,7 @@ Returns service metadata.
 
 ```json
 {
-  "service": "typst2pdf",
+  "service": "typst-api",
   "status": "running",
   "version": "2.0.0",
   "compiler": "typst-py"
@@ -329,12 +329,17 @@ curl -X POST http://localhost:38000/render \
 ## Project Structure
 
 ```
-typst2pdf/
-├── app.py                  # Flask application (typst-py compiler)
-├── requirements.txt        # Python dependencies
+typst-api/
+├── pyproject.toml          # Python packaging (PEP 621)
 ├── Dockerfile              # Container build
+├── src/
+│   └── typst_api/
+│       ├── __init__.py     # Flask app factory
+│       ├── config.py       # Configuration
+│       ├── routes/         # API endpoints
+│       └── services/       # Typst compiler service
 ├── tests/
-│   └── test_app.py         # 28 tests
+│   └── test_api.py         # 28 tests
 ├── example_zip/
 │   └── main.typ            # Example Typst template
 ├── CLAUDE.md               # Claude Code project guide
@@ -344,15 +349,15 @@ typst2pdf/
 ## Architecture
 
 ```
-Client                          typst2pdf (Flask)
+Client                          typst-api (Flask + typst-py)
   │                                   │
   │  POST /render/raw                 │
-  │  { "source": "..." }  ───────▶  typst.compile(bytes)
+  │  { "source": "..." }  ───────▶  CompilerService.compile(bytes)
   │                                   │  (in-memory, no disk I/O)
   │  ◀──── PDF/PNG/SVG bytes ─────   │
   │                                   │
   │  POST /render                     │
-  │  [ZIP file] ──────────────────▶  extract → typst.compile(path)
+  │  [ZIP file] ──────────────────▶  extract → CompilerService.compile(path)
   │                                   │  (disk-based for multi-file)
   │  ◀──── PDF/PNG/SVG bytes ─────   │
 ```

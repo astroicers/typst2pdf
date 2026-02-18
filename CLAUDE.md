@@ -1,47 +1,68 @@
-# CLAUDE.md - typst2pdf Project Guide
+# CLAUDE.md - typst-api Project Guide
 
 ## Project Overview
 
-**typst2pdf** is a Dockerized REST API service that converts Typst documents into PDF, PNG, and SVG files. Built with Python Flask and [typst-py](https://github.com/messense/typst-py) (native Python binding to the Typst compiler).
+**typst-api** is a Dockerized REST API service that converts Typst documents into PDF, PNG, and SVG files. Built with Python Flask and [typst-py](https://github.com/messense/typst-py) (native Python binding to the Typst compiler).
 
 ## Tech Stack
 
 - **Language:** Python 3
-- **Framework:** Flask
+- **Framework:** Flask (Application Factory pattern)
 - **Compiler:** typst-py (native binding, no subprocess)
 - **Container:** Docker (python:3.12-slim)
 - **Testing:** pytest (28 tests)
+- **Packaging:** pyproject.toml (PEP 621)
 
 ## Project Structure
 
 ```
-typst2pdf/
-├── app.py                  # Main Flask application with all API endpoints
-├── requirements.txt        # Python dependencies (flask, typst, pytest)
-├── Dockerfile              # Container build definition
+typst-api/
+├── pyproject.toml              # Python packaging configuration
+├── Dockerfile                  # Container build definition
+├── README.md                   # User-facing documentation
+├── CLAUDE.md                   # This file
+├── src/
+│   └── typst_api/
+│       ├── __init__.py         # create_app factory, main entry point
+│       ├── config.py           # Configuration classes
+│       ├── services/
+│       │   ├── __init__.py
+│       │   └── compiler.py     # Typst compilation service
+│       ├── routes/
+│       │   ├── __init__.py
+│       │   ├── health.py       # GET /, /health, /fonts
+│       │   └── render.py       # POST /render, /render/raw
+│       └── utils/
+│           ├── __init__.py
+│           └── parsers.py      # Input parsing/validation
 ├── tests/
 │   ├── __init__.py
-│   └── test_app.py         # API test suite (28 tests)
+│   ├── conftest.py             # pytest fixtures
+│   └── test_api.py             # API test suite (28 tests)
 ├── example_zip/
-│   └── main.typ            # Example Typst document template
-├── .claude/
-│   └── settings.json       # SessionStart hook
-├── CLAUDE.md               # This file
-└── README.md               # User-facing documentation with full API reference
+│   └── main.typ                # Example Typst document template
+└── .claude/
+    └── settings.json           # SessionStart hook
 ```
 
 ## Common Commands
 
-### Install dependencies
+### Install for development
 
 ```bash
-pip install -r requirements.txt
+pip install -e .
 ```
 
 ### Run the application
 
 ```bash
-python3 app.py
+typst-api
+```
+
+Or using Python directly:
+
+```bash
+python -c "from typst_api import main; main()"
 ```
 
 The server starts on `http://0.0.0.0:8000`.
@@ -83,7 +104,7 @@ curl -X POST http://localhost:38000/render/raw \
 ### Lint (if flake8 is installed)
 
 ```bash
-flake8 app.py tests/ --max-line-length 100
+flake8 src/typst_api tests/ --max-line-length 100
 ```
 
 ## API Endpoints
@@ -109,6 +130,10 @@ flake8 app.py tests/ --max-line-length 100
 
 ## Architecture Notes
 
+- Uses Flask Application Factory pattern (`create_app`)
+- Routes are organized into Blueprints (health_bp, render_bp)
+- Business logic extracted to CompilerService class
+- Configuration supports multiple environments (development, testing, production)
 - All API error responses use JSON format with an `error` field
 - `/render` extracts ZIP to `/tmp/{uuid}`, compiles via file path, cleans up
 - `/render/raw` compiles bytes directly in memory — no temp files

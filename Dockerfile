@@ -13,11 +13,16 @@ RUN curl -L https://github.com/typst/typst/releases/download/v0.13.1/typst-x86_6
 RUN useradd -m -s /bin/bash appuser
 
 WORKDIR /app
-COPY requirements.txt /app/
-RUN pip install --no-cache-dir -r requirements.txt
 
-COPY app.py /app/
+# Copy package files
+COPY pyproject.toml /app/
+COPY src/ /app/src/
+
+# Install package
+RUN pip install --no-cache-dir .
 
 USER appuser
 EXPOSE 8000
-CMD ["python", "app.py"]
+
+# Use the installed CLI entry point
+CMD ["typst-api"]
